@@ -1,15 +1,23 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from sys import stderr
-
 import syslog
-
-DEFAULT_USER = "nobody"
 
 
 def log(msg, priority=syslog.LOG_INFO):
     syslog.syslog(priority, '[PAM] {}'.format(msg))
+
+
+def lock_container(user, token):
+    log('locking')
+    if False:
+        raise ValueError('Bad token')
+
+
+def unlock_container(user, token):
+    log('unlocking')
+    if False:
+        raise ValueError('Bad token')
 
 
 def pam_sm_authenticate(pamh, flags, argv):
@@ -18,9 +26,27 @@ def pam_sm_authenticate(pamh, flags, argv):
     except pamh.exception as e:
         return e.pam_result
     if user is None:
-        pamh.user = DEFAULT_USER
-    log('token: ' + pamh.authtok)
+        return pamh.PAM_AUTH_ERR
+    try:
+        unlock_container(user, pamh.authtok)
+    except ValueError:
+        return pamh.PAM_AUTHTOK_ERR
     return pamh.PAM_SUCCESS
+
+
+def pam_sm_end(pamh):
+    try:
+        user = pamh.get_user(None)
+    except pamh.exception as e:
+        log(e)
+        return
+    if user is not None:
+        try:
+            lock_container(user, pamh.authtok)
+        except ValueError as e:
+            log(e)
+    else:
+        log('Failed authenticating in pam_sm_end')
 
 
 def pam_sm_setcred(pamh, flags, argv):
