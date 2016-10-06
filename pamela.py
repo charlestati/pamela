@@ -24,13 +24,13 @@ def pam_sm_authenticate(pamh, flags, argv):
         return e.pam_result
     if user is None:
         pamh.user = DEFAULT_USER
-    log_message('auth')
-    print_error('auth')
-    print_error(pamh.authtok)
+    log_message('log auth')
+    print_error('print auth')
+    #print_error(pamh.authtok)
     return pamh.PAM_SUCCESS
 
 
 def pam_sm_setcred(pamh, flags, argv):
-    log_message('setcred')
-    print_error('setcred')
+    log_message('log setcred')
+    print_error('print setcred')
     return pamh.PAM_SUCCESS
