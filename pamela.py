@@ -11,25 +11,28 @@ def log(msg, priority=syslog.LOG_INFO):
 def lock_container(user, token):
     log('locking')
     if False:
-        raise ValueError('Bad token')
+        raise ValueError('Bad token in lock_container')
 
 
 def unlock_container(user, token):
     log('unlocking')
     if False:
-        raise ValueError('Bad token')
+        raise ValueError('Bad token in unlock_container')
 
 
 def pam_sm_authenticate(pamh, flags, argv):
     try:
         user = pamh.get_user(None)
     except pamh.exception as e:
+        log(e)
         return e.pam_result
     if user is None:
+        log('Failed authenticating in pam_sm_authenticate')
         return pamh.PAM_AUTH_ERR
     try:
         unlock_container(user, pamh.authtok)
     except ValueError:
+        log(e)
         return pamh.PAM_AUTHTOK_ERR
     return pamh.PAM_SUCCESS
 
