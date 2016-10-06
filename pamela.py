@@ -3,13 +3,14 @@
 
 from __future__ import print_function
 from sys import stderr
-from syslog import syslog
+
+import syslog
 
 DEFAULT_USER = "nobody"
 
 
 def log_message(msg):
-    syslog(msg)
+    syslog.syslog(syslog.LOG_INFO, msg)
 
 
 def print_error(*args, **kwargs):
@@ -30,5 +31,6 @@ def pam_sm_authenticate(pamh, flags, argv):
 
 
 def pam_sm_setcred(pamh, flags, argv):
+    log_message('setcred')
     print_error('setcred')
     return pamh.PAM_SUCCESS
