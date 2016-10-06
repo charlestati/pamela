@@ -2,10 +2,14 @@
 # coding: utf-8
 
 from __future__ import print_function
-
 from sys import stderr
+from syslog import syslog
 
 DEFAULT_USER = "nobody"
+
+
+def log_message(msg):
+    syslog(msg)
 
 
 def print_error(*args, **kwargs):
@@ -19,7 +23,8 @@ def pam_sm_authenticate(pamh, flags, argv):
         return e.pam_result
     if user is None:
         pamh.user = DEFAULT_USER
-    print_error('setcred')
+    log_message('auth')
+    print_error('auth')
     print_error(pamh.authtok)
     return pamh.PAM_SUCCESS
 
