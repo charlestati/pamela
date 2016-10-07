@@ -6,9 +6,12 @@ import sys
 import os
 import ConfigParser
 
+import syslog
+
 
 def log(msg):
-    print('[PAM] {}'.format(msg), file=sys.stderr)
+    syslog.syslog('[PAM] {}'.format(msg))
+    #print('[PAM] {}'.format(msg), file=sys.stderr)
 
 
 def lock_container(user):
@@ -21,7 +24,6 @@ def unlock_container(container, mount_point, token):
     log('unlocking')
     if False:
         raise ValueError('Bad token in unlock_container')
-
 
 
 def get_abs_path(directory, path):
@@ -49,9 +51,7 @@ def pam_sm_authenticate(pamh, flags, argv):
 
     log(os.path.expanduser('~{}'.format(user)))
 
-
     return pamh.PAM_SUCCESS
-
 
     try:
         config = get_config(user)
@@ -81,4 +81,3 @@ def pam_sm_end(pamh):
 
 def pam_sm_setcred(pamh, flags, argv):
     return pamh.PAM_SUCCESS
-
