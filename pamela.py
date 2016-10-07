@@ -34,13 +34,12 @@ def custom_expanduser(path, user):
 
 
 def get_path(path, user):
+    if os.path.isabs(path):
+        return path
+    config_file = get_config_file(user)
+    config_file_location = os.path.dirname(config_file)
     expanded_path = custom_expanduser(path, user)
-    if os.path.isabs(expanded_path):
-        return expanded_path
-    else:
-        config_file = get_config_file(user)
-        config_file_location = os.path.dirname(config_file)
-        return os.path.join(config_file_location, expanded_path)
+    return os.path.join(config_file_location, expanded_path)
 
 
 def get_section(section, config):
@@ -69,7 +68,6 @@ def unlock_user(user, token):
     config = get_config(config_file)
     for section in config.sections():
         options = get_section(section, config)
-        log(options)
         container = get_path(options['container'], user)
         mount_point = get_path(options['mountpoint'], user)
         unlock_container(container, mount_point, token)
