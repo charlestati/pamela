@@ -3,6 +3,7 @@
 
 import syslog
 import os
+
 import ConfigParser
 
 
@@ -29,7 +30,17 @@ def custom_expanduser(path, user):
         if part == '~':
             path_parts[i] = '~{}'.format(user)
     expanded_path = os.path.expanduser(os.path.join(*path_parts))
-    return os.path.abspath(expanded_path)
+    return expanded_path
+
+
+def get_path(path, user):
+    expanded_path = custom_expanduser(path, user)
+    if os.path.isabs(expanded_path):
+        return expanded_path
+    else:
+        config_file = get_config_file(user)
+        config_file_location = os.path.dirname(config_file)
+        return os.path.join(config_file_location, expanded_path)
 
 
 def get_section(section, config):
@@ -40,20 +51,24 @@ def get_section(section, config):
     return containers
 
 
-def get_config(user):
-    config = ConfigParser.ConfigParser()
+def get_config_file(user):
     home_dir = os.path.expanduser('~{}'.format(user))
-    config_file = os.path.join(home_dir, '.pamela.d', 'config.ini')
+    return os.path.join(home_dir, '.pamela.d', 'config.ini')
+
+
+def get_config(config_file):
+    config = ConfigParser.ConfigParser()
     config.read(config_file)
     return config
 
 
 def unlock_user(user, token):
-    config = get_config(user)
+    config_file = get_config_file(user)
+    config = get_config(config_file)
     for section in config.sections():
         options = get_section(section, config)
-        container = custom_expanduser(options['container'], user)
-        mount_point = custom_expanduser(options['mountpoint'], user)
+        container = get_path(options['container'], user)
+        mount_point = get_path(options['mountpoint'], user)
         unlock_container(container, mount_point, token)
 
 
@@ -71,13 +86,10 @@ def pam_sm_authenticate(pamh, flags, argv):
 def pam_sm_end(pamh):
     try:
         user = pamh.get_user(None)
-    except pamh.exception as e:
+    except pamh.exception:
         return
     if user is not None:
-        try:
-            lock_container(user)
-        except ValueError as e:
-            log(e)
+        lock_container(user)
 
 
 def pam_sm_setcred(pamh, flags, argv):
