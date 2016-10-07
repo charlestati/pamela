@@ -64,6 +64,9 @@ def get_config(config_file):
 
 def unlock_user(user, token):
     config_file = get_config_file(user)
+    log('using config file {}'.format(config_file))
+    if not os.path.isfile(config_file):
+        return
     config = get_config(config_file)
     for section in config.sections():
         options = get_section(section, config)
@@ -91,6 +94,6 @@ def pam_sm_end(pamh):
     if user is not None:
         lock_container(user)
 
-
+# todo Check if config file exists and if contaienr and mountpoints exist
 def pam_sm_setcred(pamh, flags, argv):
     return pamh.PAM_SUCCESS
