@@ -2,10 +2,8 @@
 # coding: utf-8
 
 from __future__ import print_function
-import sys
 import os
 import ConfigParser
-
 import syslog
 
 
@@ -49,6 +47,7 @@ def pam_sm_authenticate(pamh, flags, argv):
         log('Failed authenticating in pam_sm_authenticate')
         return pamh.PAM_AUTH_ERR
 
+    log('~{}'.format(user))
     log(os.path.expanduser('~{}'.format(user)))
 
     return pamh.PAM_SUCCESS
