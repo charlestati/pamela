@@ -1,16 +1,17 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import ConfigParser
+from __future__ import print_function
+import sys
 import os
-import syslog
+import ConfigParser
 
 
-def log(msg, priority=syslog.LOG_INFO):
-    syslog.syslog(priority, '[PAM] {}'.format(msg))
+def log(msg):
+    print('[PAM] {}'.format(msg), file=sys.stderr)
 
 
-def lock_container():
+def lock_container(user):
     log('locking')
     if False:
         raise ValueError('Bad token in lock_container')
@@ -20,6 +21,12 @@ def unlock_container(container, mount_point, token):
     log('unlocking')
     if False:
         raise ValueError('Bad token in unlock_container')
+
+
+
+def get_abs_path(directory, path):
+    if os.path.isabs(path):
+        return os.path.expanduser(path)
 
 
 def get_config(user):
@@ -39,6 +46,8 @@ def pam_sm_authenticate(pamh, flags, argv):
     if user is None:
         log('Failed authenticating in pam_sm_authenticate')
         return pamh.PAM_AUTH_ERR
+
+    log(os.path.expanduser('~{}'.format(user)))
 
 
     return pamh.PAM_SUCCESS
@@ -71,26 +80,5 @@ def pam_sm_end(pamh):
 
 
 def pam_sm_setcred(pamh, flags, argv):
-
-    log(os.path.expanduser('~'))
-
     return pamh.PAM_SUCCESS
 
-
-def get_abs_path(directory, path):
-    if os.path.isabs(path):
-        return os.path.expanduser(path)
-
-
-# todo Debug
-def main():
-    config = ConfigParser.ConfigParser()
-    config.read('pamela.ini')
-    for section in config.sections():
-        options = config.options(section)
-        container = get_abs_path(config_file, options['container'])
-        #unlock_container(options['container'], options['mountPoint'], 'azerty')
-
-
-if __name__ == '__main__':
-    main()
