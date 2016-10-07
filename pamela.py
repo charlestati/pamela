@@ -47,8 +47,7 @@ def pam_sm_authenticate(pamh, flags, argv):
         log('Failed authenticating in pam_sm_authenticate')
         return pamh.PAM_AUTH_ERR
 
-    log('~{}'.format(user))
-    log(os.path.expanduser('~{}'.format(user)))
+    log(os.path.expanduser('~'))
 
     return pamh.PAM_SUCCESS
 
