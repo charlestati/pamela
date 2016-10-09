@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import subprocess
 import syslog
 import os
 
@@ -11,16 +12,15 @@ def log(msg):
     syslog.syslog('[PAM] {}'.format(msg))
 
 
-def lock_container(user):
-    log('locking {}'.format(user))
-    if False:
-        raise ValueError('Bad token in lock_container')
+def lock_container(mount_point):
+    subprocess.call('umount {}'.format(mount_point))
 
 
 def unlock_container(container, mount_point, token):
-    log('unlocking {} to {}'.format(container, mount_point))
-    if False:
-        raise ValueError('Bad token in unlock_container')
+    log('Mounting {} to {}'.format(container, mount_point))
+    subprocess.call(
+        'printf "1\n{}" | mount -t ecryptfs -o ecryptfs_cipher=aes,ecryptfs_key_bytes=16,ecryptfs_passthrough=no,ecryptfs_enable_filename_crypto=no {} {}'.format(
+            token, container, mount_point), shell=True)
 
 
 def custom_expanduser(path, user):
@@ -61,6 +61,17 @@ def get_config(config_file):
     return config
 
 
+def lock_user(user):
+    config_file = get_config_file(user)
+    if not os.path.isfile(config_file):
+        return
+    config = get_config(config_file)
+    for section in config.sections():
+        options = get_section(section, config)
+        mount_point = get_path(options['mountpoint'], user)
+        lock_container(mount_point)
+
+
 def unlock_user(user, token):
     config_file = get_config_file(user)
     if not os.path.isfile(config_file):
@@ -90,7 +101,7 @@ def pam_sm_end(pamh):
     except pamh.exception:
         return
     if user is not None:
-        lock_container(user)
+        lock_user(user)
 
 
 # todo Check if config file exists and if contaienr and mountpoints exist
