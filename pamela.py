@@ -7,6 +7,8 @@ import os
 
 import ConfigParser
 
+import pexpect as pexpect
+
 
 def log(msg):
     syslog.syslog('[PAM] {}'.format(msg))
@@ -18,9 +20,14 @@ def lock_container(mount_point):
 
 def unlock_container(container, mount_point, token):
     log('Mounting {} to {}'.format(container, mount_point))
-    subprocess.call(
-        'printf "1\n{}" | mount -t ecryptfs -o ecryptfs_cipher=aes,ecryptfs_key_bytes=16,ecryptfs_passthrough=no,ecryptfs_enable_filename_crypto=no {} {}'.format(
-            token, container, mount_point), shell=True)
+    child = pexpect.spawnu(
+        'mount -t ecryptfs -o ecryptfs_cipher=aes,ecryptfs_key_bytes=16,ecryptfs_passthrough=no,ecryptfs_enable_filename_crypto=no {} {}'.format(
+            container, mount_point))
+    child.expect('Selection: ')
+    child.sendline('1')
+    child.expect('Passphrase: ')
+    child.sendline(token)
+    child.close()
 
 
 def custom_expanduser(path, user):
