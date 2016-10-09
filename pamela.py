@@ -6,10 +6,10 @@ from __future__ import unicode_literals
 import subprocess
 import syslog
 import os
+import pexpect
 
 import ConfigParser
 
-import pexpect as pexpect
 
 
 def log(msg):
@@ -25,9 +25,9 @@ def unlock_container(container, mount_point, token):
     child = pexpect.spawnu(
         'mount -t ecryptfs -o ecryptfs_cipher=aes,ecryptfs_key_bytes=16,ecryptfs_passthrough=no,ecryptfs_enable_filename_crypto=no {} {}'.format(
             container, mount_point))
-    child.expect('Selection: ')
+    child.expect('Selection:')
     child.sendline('1')
-    child.expect('Passphrase: ')
+    child.expect('Passphrase:')
     child.sendline(token)
     child.close()
 
