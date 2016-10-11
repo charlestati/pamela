@@ -84,8 +84,6 @@ def create_vault(container, mount_point, size, owner):
         os.rmdir(mount_point)
         raise IOError('mount failed')
 
-    return
-
     if owner != 'root':
         subprocess.call(['chown', '{}:{}'.format(owner, owner), mount_point])
         subprocess.call(['chown', '{}:{}'.format(owner, owner), container])

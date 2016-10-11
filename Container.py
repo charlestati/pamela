@@ -26,8 +26,6 @@ class Container:
             subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
             raise IOError('mount failed')
 
-        return
-
         if owner and owner != 'root':
             subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point])
             subprocess.call(['chmod', '-R', '700', self.mount_point])
