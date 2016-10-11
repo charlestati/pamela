@@ -1,118 +1,110 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-from __future__ import unicode_literals
-
-import subprocess
-import syslog
+import argparse
+import base64
+import getpass
 import os
-import pexpect
+import pwd
+import subprocess
 
-import ConfigParser
-
-
-
-def log(msg):
-    syslog.syslog('[PAM] {}'.format(msg))
+from User import User
 
 
-def lock_container(mount_point):
-    subprocess.call('umount {}'.format(mount_point))
-
-
-def unlock_container(container, mount_point, token):
-    log('Mounting {} to {}'.format(container, mount_point))
-    child = pexpect.spawnu(
-        'mount -t ecryptfs -o ecryptfs_cipher=aes,ecryptfs_key_bytes=16,ecryptfs_passthrough=no,ecryptfs_enable_filename_crypto=no {} {}'.format(
-            container, mount_point))
-    child.expect('Selection:')
-    child.sendline('1')
-    child.expect('Passphrase:')
-    child.sendline(token)
-    child.close()
-
-
-def custom_expanduser(path, user):
-    path = os.path.normpath(path)
-    path_parts = path.split(os.sep)
-    for i, part in enumerate(path_parts):
-        if part == '~':
-            path_parts[i] = '~{}'.format(user)
-    expanded_path = os.path.expanduser(os.path.join(*path_parts))
-    return expanded_path
-
-
-def get_path(path, user):
-    if os.path.isabs(path):
-        return path
-    config_file = get_config_file(user)
-    config_file_location = os.path.dirname(config_file)
-    expanded_path = custom_expanduser(path, user)
-    return os.path.join(config_file_location, expanded_path)
-
-
-def get_section(section, config):
-    containers = {}
-    options = config.options(section)
-    for option in options:
-        containers[option] = config.get(section, option)
-    return containers
-
-
-def get_config_file(user):
-    home_dir = os.path.expanduser('~{}'.format(user))
-    return os.path.join(home_dir, '.pamela.d', 'config.ini')
-
-
-def get_config(config_file):
-    config = ConfigParser.ConfigParser()
-    config.read(config_file)
-    return config
-
-
-def lock_user(user):
-    config_file = get_config_file(user)
-    if not os.path.isfile(config_file):
-        return
-    config = get_config(config_file)
-    for section in config.sections():
-        options = get_section(section, config)
-        mount_point = get_path(options['mountpoint'], user)
-        lock_container(mount_point)
-
-
-def unlock_user(user, token):
-    config_file = get_config_file(user)
-    if not os.path.isfile(config_file):
-        return
-    config = get_config(config_file)
-    for section in config.sections():
-        options = get_section(section, config)
-        container = get_path(options['container'], user)
-        mount_point = get_path(options['mountpoint'], user)
-        unlock_container(container, mount_point, token)
-
-
-def pam_sm_authenticate(pamh, flags, argv):
+def pam_sm_authenticate(pamh):
     try:
-        user = pamh.get_user(None)
+        username = pamh.get_user(None)
     except pamh.exception as e:
         return e.pam_result
-    if user is None:
+    if username is None:
         return pamh.PAM_AUTH_ERR
-    unlock_user(user, pamh.authtok)
+    user = User(username, pamh.authtok)
+    user.unlock()
     return pamh.PAM_SUCCESS
 
 
 def pam_sm_end(pamh):
     try:
-        user = pamh.get_user(None)
+        username = pamh.get_user(None)
     except pamh.exception:
         return
-    if user is not None:
-        lock_user(user)
+    if username is not None:
+        user = User(username, None)
+        user.lock()
 
 
-# todo Check if config file exists and if contaienr and mountpoints exist
-def pam_sm_setcred(pamh, flags, argv):
+def pam_sm_setcred(pamh):
     return pamh.PAM_SUCCESS
+
+
+def create_vault(container, mount_point, size, owner):
+    if os.path.exists(container):
+        raise IOError('File "{}" already exists'.format(container))
+
+    if subprocess.call(['fallocate', '-l', '{}M'.format(str(size)), container]) != 0:
+        raise IOError('Failed to create file "{}"'.format(container))
+
+    if not os.path.exists(mount_point):
+        os.makedirs(mount_point)
+    elif os.listdir(mount_point):
+        os.remove(container)
+        raise IOError('Mount point "{}" is not empty'.format(mount_point))
+
+    passphrase = getpass.getpass('Passphrase: ')
+
+    csetup = subprocess.Popen(['cryptsetup', 'luksFormat', container], stdin=subprocess.PIPE)
+    csetup.communicate('{}\n'.format(passphrase))
+    csetup.wait()
+    if csetup.returncode != 0:
+        os.remove(container)
+        os.rmdir(mount_point)
+        raise IOError('cryptSetup luksFormat failed')
+
+    fuuid = base64.b64encode(container)
+
+    csetup = subprocess.Popen(['cryptsetup', 'luksOpen', container, fuuid], stdin=subprocess.PIPE)
+    csetup.communicate('{}\n'.format(passphrase))
+    csetup.wait()
+    if csetup.returncode != 0:
+        os.remove(container)
+        os.rmdir(mount_point)
+        raise IOError('cryptSetup luksOpen failed')
+
+    map_location = os.path.join('/dev/mapper', fuuid)
+
+    if subprocess.call(['mkfs.ext4', '-j', map_location]) != 0:
+        subprocess.call(['cryptsetup', 'luksClose', fuuid])
+        os.remove(container)
+        os.rmdir(mount_point)
+        raise IOError('mkfs.ext4 failed')
+
+    if subprocess.call(['mount', map_location, mount_point]) != 0:
+        subprocess.call(['cryptsetup', 'luksClose', fuuid])
+        os.remove(container)
+        os.rmdir(mount_point)
+        raise IOError('mount failed')
+
+    return
+
+    if owner != 'root':
+        subprocess.call(['chown', '{}:{}'.format(owner, owner), mount_point])
+        subprocess.call(['chown', '{}:{}'.format(owner, owner), container])
+
+    subprocess.call(['chmod', '700', mount_point])
+
+
+def main():
+    parser = argparse.ArgumentParser(description='Set up a LUKS container')
+    parser.add_argument('container', help='The container to hold encrypted data in')
+    parser.add_argument('mountpoint', help='The mount point of the container')
+    parser.add_argument('-l', '--length', default=100, type=int, help='The size of the container in megabytes [100M]')
+    parser.add_argument('-u', '--user', default=pwd.getpwuid(os.getuid())[0],
+                        help='The owner of the container [' + pwd.getpwuid(os.getuid())[0] + ']')
+
+    args = parser.parse_args()
+
+    create_vault(args.container, args.mountpoint, args.length, args.user)
+
+
+if __name__ == '__main__':
+    main()
