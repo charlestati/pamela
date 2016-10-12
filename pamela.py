@@ -9,6 +9,8 @@ import os
 import pwd
 import subprocess
 
+import syslog
+
 
 class Container:
     def __init__(self, container, mount_point):
@@ -33,6 +35,7 @@ class Container:
             raise IOError('mount failed')
 
         if owner and owner != 'root':
+            syslog.syslog('PAM: {}'.format(owner))
             subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point])
             subprocess.call(['chmod', '-R', '700', self.mount_point])
 
