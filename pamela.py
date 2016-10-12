@@ -8,7 +8,7 @@ import os
 import pwd
 import subprocess
 
-from User import User
+from lib.User import User
 
 
 def pam_sm_authenticate(pamh):
