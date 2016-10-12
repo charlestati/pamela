@@ -34,10 +34,12 @@ class Container:
             subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
             raise IOError('mount failed')
 
+        '''
         if owner and owner != 'root':
             syslog.syslog('PAM: {}'.format(owner))
             subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point])
             subprocess.call(['chmod', '-R', '700', self.mount_point])
+        '''
 
     def close(self):
         if subprocess.call(['umount', self.mount_point]) != 0:
@@ -187,11 +189,13 @@ def create_vault(container, mount_point, size, owner):
         os.rmdir(mount_point)
         raise IOError('mount failed')
 
+    '''
     if owner != 'root':
         subprocess.call(['chown', '{}:{}'.format(owner, owner), mount_point])
         subprocess.call(['chown', '{}:{}'.format(owner, owner), container])
 
     subprocess.call(['chmod', '700', mount_point])
+    '''
 
 
 def main():
