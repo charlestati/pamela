@@ -44,7 +44,7 @@ class Container:
 
     def kill(self):
         subprocess.call(['fuser', '-k', self.mount_point])
-        self.close()
+        subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
 
 
 class User:
@@ -111,7 +111,7 @@ class User:
             container.close()
 
 
-def pam_sm_authenticate(pamh):
+def pam_sm_authenticate(pamh, flags, argv):
     try:
         username = pamh.get_user(None)
     except pamh.exception as e:
@@ -133,7 +133,7 @@ def pam_sm_end(pamh):
         user.lock()
 
 
-def pam_sm_setcred(pamh):
+def pam_sm_setcred(pamh, flags, argv):
     return pamh.PAM_SUCCESS
 
 
