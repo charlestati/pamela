@@ -2,14 +2,9 @@
 # coding: utf-8
 
 import ConfigParser
-import argparse
 import base64
-import getpass
 import os
-import pwd
 import subprocess
-
-import syslog
 
 
 class Container:
@@ -19,7 +14,7 @@ class Container:
         self.fuuid = base64.b64encode(container)
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
-    def open(self, passphrase, owner):
+    def open(self, passphrase, owner=None):
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
 
@@ -34,12 +29,9 @@ class Container:
             subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
             raise IOError('mount failed')
 
-        '''
         if owner and owner != 'root':
-            syslog.syslog('PAM: {}'.format(owner))
             subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point])
             subprocess.call(['chmod', '-R', '700', self.mount_point])
-        '''
 
     def close(self):
         if subprocess.call(['umount', self.mount_point]) != 0:
@@ -62,15 +54,6 @@ class User:
         if self.config:
             self.set_containers()
 
-    def set_containers(self):
-        for section in self.config.sections():
-            options = self.get_section(section)
-            if 'container' in options and 'mountpoint' in options:
-                container = self.get_path(options['container'])
-                mount_point = self.get_path(options['mountpoint'])
-                if os.path.exists(container) and os.path.isdir(mount_point):
-                    self.containers.append(Container(container, mount_point))
-
     def get_config_file(self):
         home_dir = os.path.expanduser('~{}'.format(self.username))
         return os.path.join(home_dir, '.pamela.d', 'config.ini')
@@ -81,6 +64,15 @@ class User:
         config = ConfigParser.ConfigParser()
         config.read(self.config_file)
         return config
+
+    def set_containers(self):
+        for section in self.config.sections():
+            options = self.get_section(section)
+            if 'container' in options and 'mountpoint' in options:
+                container = self.get_path(options['container'])
+                mount_point = self.get_path(options['mountpoint'])
+                if os.path.exists(container) and os.path.isdir(mount_point):
+                    self.containers.append(Container(container, mount_point))
 
     def expanduser(self, path):
         path = os.path.normpath(path)
@@ -109,7 +101,7 @@ class User:
 
     def unlock(self):
         for container in self.containers:
-            container.open(self.auth_token, self.username)
+            container.open(self.auth_token, None)
 
     def lock(self):
         for container in self.containers:
@@ -140,76 +132,3 @@ def pam_sm_end(pamh):
 
 def pam_sm_setcred(pamh, flags, argv):
     return pamh.PAM_SUCCESS
-
-
-def create_vault(container, mount_point, size, owner):
-    if os.path.exists(container):
-        raise IOError('File "{}" already exists'.format(container))
-
-    if subprocess.call(['fallocate', '-l', '{}M'.format(str(size)), container]) != 0:
-        raise IOError('Failed to create file "{}"'.format(container))
-
-    if not os.path.exists(mount_point):
-        os.makedirs(mount_point)
-    elif os.listdir(mount_point):
-        os.remove(container)
-        raise IOError('Mount point "{}" is not empty'.format(mount_point))
-
-    passphrase = getpass.getpass('Passphrase: ')
-
-    csetup = subprocess.Popen(['cryptsetup', 'luksFormat', container], stdin=subprocess.PIPE)
-    csetup.communicate('{}\n'.format(passphrase))
-    csetup.wait()
-    if csetup.returncode != 0:
-        os.remove(container)
-        os.rmdir(mount_point)
-        raise IOError('cryptSetup luksFormat failed')
-
-    fuuid = base64.b64encode(container)
-
-    csetup = subprocess.Popen(['cryptsetup', 'luksOpen', container, fuuid], stdin=subprocess.PIPE)
-    csetup.communicate('{}\n'.format(passphrase))
-    csetup.wait()
-    if csetup.returncode != 0:
-        os.remove(container)
-        os.rmdir(mount_point)
-        raise IOError('cryptSetup luksOpen failed')
-
-    map_location = os.path.join('/dev/mapper', fuuid)
-
-    if subprocess.call(['mkfs.ext4', '-j', map_location]) != 0:
-        subprocess.call(['cryptsetup', 'luksClose', fuuid])
-        os.remove(container)
-        os.rmdir(mount_point)
-        raise IOError('mkfs.ext4 failed')
-
-    if subprocess.call(['mount', map_location, mount_point]) != 0:
-        subprocess.call(['cryptsetup', 'luksClose', fuuid])
-        os.remove(container)
-        os.rmdir(mount_point)
-        raise IOError('mount failed')
-
-    '''
-    if owner != 'root':
-        subprocess.call(['chown', '{}:{}'.format(owner, owner), mount_point])
-        subprocess.call(['chown', '{}:{}'.format(owner, owner), container])
-
-    subprocess.call(['chmod', '700', mount_point])
-    '''
-
-
-def main():
-    parser = argparse.ArgumentParser(description='Set up a LUKS container')
-    parser.add_argument('container', help='The container to hold encrypted data in')
-    parser.add_argument('mountpoint', help='The mount point of the container')
-    parser.add_argument('-l', '--length', default=100, type=int, help='The size of the container in megabytes [100M]')
-    parser.add_argument('-u', '--user', default=pwd.getpwuid(os.getuid())[0],
-                        help='The owner of the container [' + pwd.getpwuid(os.getuid())[0] + ']')
-
-    args = parser.parse_args()
-
-    create_vault(args.container, args.mountpoint, args.length, args.user)
-
-
-if __name__ == '__main__':
-    main()
