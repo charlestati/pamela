@@ -36,12 +36,11 @@ class Container:
     def close(self):
         if subprocess.call(['umount', self.mount_point]) != 0:
             self.kill()
-        else:
-            subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
+        subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
 
     def kill(self):
         subprocess.call(['fuser', '-k', self.mount_point])
-        subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
+        subprocess.call(['umount', self.mount_point])
 
 
 class User:
