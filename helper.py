@@ -25,7 +25,7 @@ def create_vault(container, mount_point, size, owner):
     passphrase1 = getpass.getpass('Passphrase: ')
     passphrase2 = getpass.getpass('Confirmation: ')
 
-    if passphrase1 == passphrase2:
+    if passphrase1 != passphrase2:
         os.remove(container)
         os.rmdir(mount_point)
         raise ValueError('Passphrases do not match')
