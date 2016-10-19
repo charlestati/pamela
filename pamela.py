@@ -17,7 +17,6 @@ class Container:
         self.fuuid = base64.b64encode(self.container)
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
-    # todo Remettre shell=True si besoin
     def open(self, passphrase):
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
@@ -30,18 +29,18 @@ class Container:
         if cryptsetup.returncode != EXIT_SUCCESS:
             raise IOError('luksOpen failed')
 
-        if subprocess.call('mount {} {}'.format(self.map, pipes.quote(self.mount_point))) != EXIT_SUCCESS:
-            subprocess.call('cryptsetup luksClose {}'.format(self.fuuid))
+        if subprocess.call('mount {} {}'.format(self.map, pipes.quote(self.mount_point)), shell=True) != EXIT_SUCCESS:
+            subprocess.call('cryptsetup luksClose {}'.format(self.fuuid), shell=True)
             raise IOError('mount failed')
 
     def close(self):
-        if subprocess.call('umount {}'.format(pipes.quote(self.mount_point))) != EXIT_SUCCESS:
+        if subprocess.call('umount {}'.format(pipes.quote(self.mount_point)), shell=True) != EXIT_SUCCESS:
             self.kill()
-        subprocess.call('cryptsetup luksClose {}'.format(self.fuuid))
+        subprocess.call('cryptsetup luksClose {}'.format(self.fuuid), shell=True)
 
     def kill(self):
-        subprocess.call('fuser -k {}'.format(pipes.quote(self.mount_point)))
-        subprocess.call('umount {}'.format(pipes.quote(self.mount_point)))
+        subprocess.call('fuser -k {}'.format(pipes.quote(self.mount_point)), shell=True)
+        subprocess.call('umount {}'.format(pipes.quote(self.mount_point)), shell=True)
 
 
 class User:
