@@ -21,6 +21,7 @@ class Container:
 
     def open(self, passphrase, owner=None):
         syslog.syslog(self.container)
+        syslog.syslog(self.mount_point)
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
 
