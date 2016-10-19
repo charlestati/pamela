@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import ConfigParser
 import base64
+import ConfigParser
 import os
+import pipes
 import subprocess
 
 import syslog
@@ -13,7 +14,7 @@ class Container:
     def __init__(self, container, mount_point):
         self.container = container
         self.mount_point = mount_point
-        self.fuuid = base64.b64encode(container)
+        self.fuuid = base64.b64encode(self.container)
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
     def open(self, passphrase, owner=None):
@@ -23,31 +24,31 @@ class Container:
 
         syslog.syslog('[PAM] open 1')
 
-        cryptsetup = subprocess.Popen(['cryptsetup', 'luksOpen', self.container, self.fuuid], stdin=subprocess.PIPE,
-                                      shell=True)
+        cryptsetup = subprocess.Popen(['cryptsetup', 'luksOpen', pipes.quote(self.container), self.fuuid],
+                                      stdin=subprocess.PIPE, shell=True)
         cryptsetup.communicate('{}\n'.format(passphrase))
         cryptsetup.wait()
 
         syslog.syslog('[PAM] open 2')
 
         if cryptsetup.returncode != 0:
-            raise IOError('open failed')
+            raise IOError('luksOpen failed')
 
         syslog.syslog('[PAM] open 3')
 
-        if subprocess.call(['mount', self.map, self.mount_point], shell=True) != 0:
+        if subprocess.call(['mount', self.map, pipes.quote(self.mount_point)], shell=True) != 0:
             subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
             raise IOError('mount failed')
 
         syslog.syslog('[PAM] open 4')
 
         if owner and owner != 'root':
-            subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point], shell=True)
-            subprocess.call(['chmod', '-R', '700', self.mount_point], shell=True)
+            subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), pipes.quote(self.mount_point)], shell=True)
+            subprocess.call(['chmod', '-R', '700', pipes.quote(self.mount_point)], shell=True)
 
     def close(self):
         syslog.syslog('[PAM] close 0')
-        if subprocess.call(['umount', self.mount_point], shell=True) != 0:
+        if subprocess.call(['umount', pipes.quote(self.mount_point)], shell=True) != 0:
             self.kill()
 
         syslog.syslog('[PAM] close 1')
@@ -58,9 +59,9 @@ class Container:
 
     def kill(self):
         syslog.syslog('[PAM] kill 0')
-        subprocess.call(['fuser', '-k', self.mount_point], shell=True)
+        subprocess.call(['fuser', '-k', pipes.quote(self.mount_point)], shell=True)
         syslog.syslog('[PAM] kill 1')
-        subprocess.call(['umount', self.mount_point], shell=True)
+        subprocess.call(['umount', pipes.quote(self.mount_point)], shell=True)
         syslog.syslog('[PAM] kill 2')
 
 
