@@ -15,7 +15,7 @@ def create_vault(container, mount_point, size, owner):
     if os.path.exists(container):
         raise IOError('File "{}" already exists'.format(container))
 
-    if subprocess.call('fallocate -l {}M {}'.format(str(size), container)) != EXIT_SUCCESS:
+    if subprocess.call('fallocate -l {}M {}'.format(str(size), container), shell=True) != EXIT_SUCCESS:
         raise IOError('Failed to create file "{}"'.format(container))
 
     if not os.path.exists(mount_point):
