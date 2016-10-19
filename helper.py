@@ -41,7 +41,7 @@ def create_vault(container, mount_point, size, owner):
     if csetup.returncode != EXIT_SUCCESS:
         os.remove(container)
         os.rmdir(mount_point)
-        raise IOError('cryptSetup luksFormat failed')
+        raise IOError('luksFormat failed')
 
     fuuid = base64.b64encode(container)
 
@@ -52,7 +52,7 @@ def create_vault(container, mount_point, size, owner):
     if csetup.returncode != EXIT_SUCCESS:
         os.remove(container)
         os.rmdir(mount_point)
-        raise IOError('cryptSetup luksOpen failed')
+        raise IOError('luksOpen failed')
 
     map_location = os.path.join('/dev/mapper', fuuid)
 

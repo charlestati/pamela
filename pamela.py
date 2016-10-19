@@ -7,8 +7,6 @@ import os
 import pipes
 import subprocess
 
-import syslog
-
 EXIT_SUCCESS = 0
 
 
@@ -19,8 +17,8 @@ class Container:
         self.fuuid = base64.b64encode(self.container)
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
-    def open(self, passphrase, owner=None):
-        syslog.syslog(self.mount_point)
+    # todo Remettre shell=True si besoin
+    def open(self, passphrase):
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
 
@@ -32,22 +30,18 @@ class Container:
         if cryptsetup.returncode != EXIT_SUCCESS:
             raise IOError('luksOpen failed')
 
-        if subprocess.call('mount {} {}'.format(self.map, pipes.quote(self.mount_point)), shell=True) != EXIT_SUCCESS:
+        if subprocess.call('mount {} {}'.format(self.map, pipes.quote(self.mount_point))) != EXIT_SUCCESS:
             subprocess.call('cryptsetup luksClose {}'.format(self.fuuid))
             raise IOError('mount failed')
 
-        if owner and owner != 'root':
-            subprocess.call('chown -R {}:{} {}'.format(owner, owner, pipes.quote(self.mount_point)), shell=True)
-            subprocess.call('chmod -R 700 {}'.format(pipes.quote(self.mount_point)), shell=True)
-
     def close(self):
-        if subprocess.call('umount {}'.format(pipes.quote(self.mount_point)), shell=True) != EXIT_SUCCESS:
+        if subprocess.call('umount {}'.format(pipes.quote(self.mount_point))) != EXIT_SUCCESS:
             self.kill()
-        subprocess.call('cryptsetup luksClose {}'.format(self.fuuid), shell=True)
+        subprocess.call('cryptsetup luksClose {}'.format(self.fuuid))
 
     def kill(self):
-        subprocess.call('fuser -k {}'.format(pipes.quote(self.mount_point)), shell=True)
-        subprocess.call('umount {}'.format(pipes.quote(self.mount_point)), shell=True)
+        subprocess.call('fuser -k {}'.format(pipes.quote(self.mount_point)))
+        subprocess.call('umount {}'.format(pipes.quote(self.mount_point)))
 
 
 class User:
@@ -81,7 +75,6 @@ class User:
                     self.containers.append(Container(container, mount_point))
 
     def expanduser(self, path):
-        path = os.path.normpath(path)
         path_parts = path.split(os.sep)
         for i, part in enumerate(path_parts):
             if part == '~':
@@ -91,7 +84,7 @@ class User:
 
     def get_path(self, path):
         if os.path.isabs(path):
-            return os.path.normpath(path)
+            return path
         expanded_path = self.expanduser(path)
         if os.path.isabs(expanded_path):
             return os.path.normpath(expanded_path)
