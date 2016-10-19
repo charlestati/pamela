@@ -23,7 +23,8 @@ class Container:
 
         syslog.syslog('[PAM] open 1')
 
-        cryptsetup = subprocess.Popen(['cryptsetup', 'luksOpen', self.container, self.fuuid], stdin=subprocess.PIPE)
+        cryptsetup = subprocess.Popen(['cryptsetup', 'luksOpen', self.container, self.fuuid], stdin=subprocess.PIPE,
+                                      shell=True)
         cryptsetup.communicate('{}\n'.format(passphrase))
         cryptsetup.wait()
 
@@ -34,32 +35,32 @@ class Container:
 
         syslog.syslog('[PAM] open 3')
 
-        if subprocess.call(['mount', self.map, self.mount_point]) != 0:
+        if subprocess.call(['mount', self.map, self.mount_point], shell=True) != 0:
             subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
             raise IOError('mount failed')
 
         syslog.syslog('[PAM] open 4')
 
         if owner and owner != 'root':
-            subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point])
-            subprocess.call(['chmod', '-R', '700', self.mount_point])
+            subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point], shell=True)
+            subprocess.call(['chmod', '-R', '700', self.mount_point], shell=True)
 
     def close(self):
         syslog.syslog('[PAM] close 0')
-        if subprocess.call(['umount', self.mount_point]) != 0:
+        if subprocess.call(['umount', self.mount_point], shell=True) != 0:
             self.kill()
 
         syslog.syslog('[PAM] close 1')
 
-        subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
+        subprocess.call(['cryptsetup', 'luksClose', self.fuuid], shell=True)
 
         syslog.syslog('[PAM] close 2')
 
     def kill(self):
         syslog.syslog('[PAM] kill 0')
-        subprocess.call(['fuser', '-k', self.mount_point])
+        subprocess.call(['fuser', '-k', self.mount_point], shell=True)
         syslog.syslog('[PAM] kill 1')
-        subprocess.call(['umount', self.mount_point])
+        subprocess.call(['umount', self.mount_point], shell=True)
         syslog.syslog('[PAM] kill 2')
 
 
