@@ -7,7 +7,7 @@ import os
 import pipes
 import subprocess
 
-import syslog
+EXIT_SUCCESS = 0
 
 
 class Container:
@@ -18,51 +18,33 @@ class Container:
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
     def open(self, passphrase, owner=None):
-        syslog.syslog('[PAM] open 0')
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
 
-        syslog.syslog('[PAM] open 1')
-
-        args = ['cryptsetup', 'luksOpen', self.container, self.fuuid]
-        cryptsetup = subprocess.Popen(' '.join(pipes.quote(arg) for arg in args), shell=True)
+        cryptsetup = subprocess.Popen('cryptsetup luksOpen {} {}'.format(pipes.quote(self.container), self.fuuid),
+                                      stdin=subprocess.PIPE, shell=True)
         cryptsetup.communicate('{}\n'.format(passphrase))
         cryptsetup.wait()
 
-        syslog.syslog('[PAM] open 2')
-
-        if cryptsetup.returncode != 0:
+        if cryptsetup.returncode != EXIT_SUCCESS:
             raise IOError('luksOpen failed')
 
-        syslog.syslog('[PAM] open 3')
-
-        if subprocess.call(['mount', self.map, pipes.quote(self.mount_point)], shell=True) != 0:
-            subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
+        if subprocess.call('mount {} {}'.format(self.map, pipes.quote(self.mount_point)), shell=True) != EXIT_SUCCESS:
+            subprocess.call('cryptsetup luksClose {}'.format(self.fuuid))
             raise IOError('mount failed')
 
-        syslog.syslog('[PAM] open 4')
-
         if owner and owner != 'root':
-            subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), pipes.quote(self.mount_point)], shell=True)
-            subprocess.call(['chmod', '-R', '700', pipes.quote(self.mount_point)], shell=True)
+            subprocess.call('chown -R {}:{} {}'.format(owner, owner, pipes.quote(self.mount_point)), shell=True)
+            subprocess.call('chmod -R 700 {}'.format(pipes.quote(self.mount_point)), shell=True)
 
     def close(self):
-        syslog.syslog('[PAM] close 0')
-        if subprocess.call(['umount', pipes.quote(self.mount_point)], shell=True) != 0:
+        if subprocess.call('umount {}'.format(pipes.quote(self.mount_point)), shell=True) != EXIT_SUCCESS:
             self.kill()
-
-        syslog.syslog('[PAM] close 1')
-
-        subprocess.call(['cryptsetup', 'luksClose', self.fuuid], shell=True)
-
-        syslog.syslog('[PAM] close 2')
+        subprocess.call('cryptsetup luksClose {}'.format(self.fuuid), shell=True)
 
     def kill(self):
-        syslog.syslog('[PAM] kill 0')
-        subprocess.call(['fuser', '-k', pipes.quote(self.mount_point)], shell=True)
-        syslog.syslog('[PAM] kill 1')
-        subprocess.call(['umount', pipes.quote(self.mount_point)], shell=True)
-        syslog.syslog('[PAM] kill 2')
+        subprocess.call('fuser -k {}'.format(pipes.quote(self.mount_point)), shell=True)
+        subprocess.call('umount {}'.format(pipes.quote(self.mount_point)), shell=True)
 
 
 class User:
