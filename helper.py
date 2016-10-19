@@ -56,23 +56,23 @@ def create_vault(container, mount_point, size, owner):
 
     map_location = os.path.join('/dev/mapper', fuuid)
 
-    if subprocess.call('mkfs.ext4 -j {}'.format(map_location)) != EXIT_SUCCESS:
-        subprocess.call('cryptsetup luksClose {}'.format(fuuid))
+    if subprocess.call('mkfs.ext4 -j {}'.format(map_location), shell=True) != EXIT_SUCCESS:
+        subprocess.call('cryptsetup luksClose {}'.format(fuuid), shell=True)
         os.remove(container)
         os.rmdir(mount_point)
         raise IOError('mkfs.ext4 failed')
 
-    if subprocess.call('mount {} {}'.format(map_location, mount_point)) != EXIT_SUCCESS:
-        subprocess.call('cryptsetup luksClose {}'.format(fuuid))
+    if subprocess.call('mount {} {}'.format(map_location, mount_point), shell=True) != EXIT_SUCCESS:
+        subprocess.call('cryptsetup luksClose {}'.format(fuuid), shell=True)
         os.remove(container)
         os.rmdir(mount_point)
         raise IOError('mount failed')
 
     if owner != 'root':
-        subprocess.call('chown {}:{} {}'.format(owner, owner, mount_point))
-        subprocess.call('chown {}:{} {}'.format(owner, owner, container))
+        subprocess.call('chown {}:{} {}'.format(owner, owner, mount_point), shell=True)
+        subprocess.call('chown {}:{} {}'.format(owner, owner, container), shell=True)
 
-    subprocess.call('chmod 700 {}'.format(mount_point))
+    subprocess.call('chmod 700 {}'.format(mount_point), shell=True)
 
 
 def main():
