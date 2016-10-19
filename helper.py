@@ -34,7 +34,7 @@ def create_vault(container, mount_point, size, owner):
 
     passphrase = passphrase1
 
-    csetup = subprocess.Popen('cryptsetup luksFormat {}'.format(container), stdin=subprocess.PIPE)
+    csetup = subprocess.Popen('cryptsetup luksFormat {}'.format(container), stdin=subprocess.PIPE, shell=True)
     csetup.communicate('{}\n'.format(passphrase))
     csetup.wait()
 
@@ -45,7 +45,7 @@ def create_vault(container, mount_point, size, owner):
 
     fuuid = base64.b64encode(container)
 
-    csetup = subprocess.Popen('cryptsetup luksOpen {} {}'.format(container, fuuid), stdin=subprocess.PIPE)
+    csetup = subprocess.Popen('cryptsetup luksOpen {} {}'.format(container, fuuid), stdin=subprocess.PIPE, shell=True)
     csetup.communicate('{}\n'.format(passphrase))
     csetup.wait()
 
