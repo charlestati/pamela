@@ -20,7 +20,6 @@ class Container:
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
     def open(self, passphrase, owner=None):
-        syslog.syslog(self.container)
         syslog.syslog(self.mount_point)
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
@@ -92,12 +91,12 @@ class User:
 
     def get_path(self, path):
         if os.path.isabs(path):
-            return path
+            return os.path.normpath(path)
         expanded_path = self.expanduser(path)
         if os.path.isabs(expanded_path):
-            return expanded_path
+            return os.path.normpath(expanded_path)
         config_file_location = os.path.dirname(self.config_file)
-        return os.path.join(config_file_location, expanded_path)
+        return os.path.normpath(os.path.join(config_file_location, expanded_path))
 
     def get_section(self, section):
         containers = {}
