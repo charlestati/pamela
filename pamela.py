@@ -23,7 +23,7 @@ class Container:
             raise IOError('Mount point is already mounted')
 
         cryptsetup = subprocess.Popen('cryptsetup luksOpen {} {}'.format(pipes.quote(self.container), self.fuuid),
-                                      stdin=subprocess.PIPE, shell=True)
+                                      stdin=subprocess.PIPE)
         cryptsetup.communicate('{}\n'.format(passphrase))
         cryptsetup.wait()
 
