@@ -8,12 +8,14 @@ import os
 import pwd
 import subprocess
 
+EXIT_SUCCESS = 0
+
 
 def create_vault(container, mount_point, size, owner):
     if os.path.exists(container):
         raise IOError('File "{}" already exists'.format(container))
 
-    if subprocess.call(['fallocate', '-l', '{}M'.format(str(size)), container]) != 0:
+    if subprocess.call('fallocate -l {}M {}'.format(str(size), container)) != EXIT_SUCCESS:
         raise IOError('Failed to create file "{}"'.format(container))
 
     if not os.path.exists(mount_point):
@@ -32,43 +34,45 @@ def create_vault(container, mount_point, size, owner):
 
     passphrase = passphrase1
 
-    csetup = subprocess.Popen(['cryptsetup', 'luksFormat', container], stdin=subprocess.PIPE)
+    csetup = subprocess.Popen('cryptsetup luksFormat {}'.format(container), stdin=subprocess.PIPE)
     csetup.communicate('{}\n'.format(passphrase))
     csetup.wait()
-    if csetup.returncode != 0:
+
+    if csetup.returncode != EXIT_SUCCESS:
         os.remove(container)
         os.rmdir(mount_point)
         raise IOError('cryptSetup luksFormat failed')
 
     fuuid = base64.b64encode(container)
 
-    csetup = subprocess.Popen(['cryptsetup', 'luksOpen', container, fuuid], stdin=subprocess.PIPE)
+    csetup = subprocess.Popen('cryptsetup luksOpen {} {}'.format(container, fuuid), stdin=subprocess.PIPE)
     csetup.communicate('{}\n'.format(passphrase))
     csetup.wait()
-    if csetup.returncode != 0:
+
+    if csetup.returncode != EXIT_SUCCESS:
         os.remove(container)
         os.rmdir(mount_point)
         raise IOError('cryptSetup luksOpen failed')
 
     map_location = os.path.join('/dev/mapper', fuuid)
 
-    if subprocess.call(['mkfs.ext4', '-j', map_location]) != 0:
-        subprocess.call(['cryptsetup', 'luksClose', fuuid])
+    if subprocess.call('mkfs.ext4 -j {}'.format(map_location)) != EXIT_SUCCESS:
+        subprocess.call('cryptsetup luksClose {}'.format(fuuid))
         os.remove(container)
         os.rmdir(mount_point)
         raise IOError('mkfs.ext4 failed')
 
-    if subprocess.call(['mount', map_location, mount_point]) != 0:
-        subprocess.call(['cryptsetup', 'luksClose', fuuid])
+    if subprocess.call('mount {} {}'.format(map_location, mount_point)) != EXIT_SUCCESS:
+        subprocess.call('cryptsetup luksClose {}'.format(fuuid))
         os.remove(container)
         os.rmdir(mount_point)
         raise IOError('mount failed')
 
     if owner != 'root':
-        subprocess.call(['chown', '{}:{}'.format(owner, owner), mount_point])
-        subprocess.call(['chown', '{}:{}'.format(owner, owner), container])
+        subprocess.call('chown {}:{} {}'.format(owner, owner, mount_point))
+        subprocess.call('chown {}:{} {}'.format(owner, owner, container))
 
-    subprocess.call(['chmod', '700', mount_point])
+    subprocess.call('chmod 700 {}'.format(mount_point))
 
 
 def main():
