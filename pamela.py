@@ -17,34 +17,50 @@ class Container:
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
     def open(self, passphrase, owner=None):
-        syslog.syslog('[PAM] open')
+        syslog.syslog('[PAM] open 0')
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
+
+        syslog.syslog('[PAM] open 1')
 
         cryptsetup = subprocess.Popen(['cryptsetup', 'luksOpen', self.container, self.fuuid], stdin=subprocess.PIPE)
         cryptsetup.communicate('{}\n'.format(passphrase))
         cryptsetup.wait()
 
+        syslog.syslog('[PAM] open 2')
+
         if cryptsetup.returncode != 0:
             raise IOError('open failed')
+
+        syslog.syslog('[PAM] open 3')
 
         if subprocess.call(['mount', self.map, self.mount_point]) != 0:
             subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
             raise IOError('mount failed')
+
+        syslog.syslog('[PAM] open 4')
 
         if owner and owner != 'root':
             subprocess.call(['chown', '-R', '{}:{}'.format(owner, owner), self.mount_point])
             subprocess.call(['chmod', '-R', '700', self.mount_point])
 
     def close(self):
-        syslog.syslog('[PAM] close')
+        syslog.syslog('[PAM] close 0')
         if subprocess.call(['umount', self.mount_point]) != 0:
             self.kill()
+
+        syslog.syslog('[PAM] close 1')
+
         subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
 
+        syslog.syslog('[PAM] close 2')
+
     def kill(self):
+        syslog.syslog('[PAM] kill 0')
         subprocess.call(['fuser', '-k', self.mount_point])
+        syslog.syslog('[PAM] kill 1')
         subprocess.call(['umount', self.mount_point])
+        syslog.syslog('[PAM] kill 2')
 
 
 class User:
@@ -103,18 +119,15 @@ class User:
         return containers
 
     def unlock(self):
-        syslog.syslog('[PAM] unlock')
         for container in self.containers:
             container.open(self.auth_token)
 
     def lock(self):
-        syslog.syslog('[PAM] lock')
         for container in self.containers:
             container.close()
 
 
 def pam_sm_authenticate(pamh, flags, argv):
-    syslog.syslog('[PAM] pam_sm_authenticate')
     try:
         username = pamh.get_user(None)
     except pamh.exception as e:
@@ -127,7 +140,6 @@ def pam_sm_authenticate(pamh, flags, argv):
 
 
 def pam_sm_end(pamh):
-    syslog.syslog('[PAM] pam_sm_end')
     try:
         username = pamh.get_user(None)
     except pamh.exception:
@@ -138,5 +150,4 @@ def pam_sm_end(pamh):
 
 
 def pam_sm_setcred(pamh, flags, argv):
-    syslog.syslog('[PAM] pam_sm_setcred')
     return pamh.PAM_SUCCESS
