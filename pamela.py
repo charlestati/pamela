@@ -7,6 +7,8 @@ import os
 import pipes
 import subprocess
 
+import syslog
+
 EXIT_SUCCESS = 0
 
 
@@ -18,6 +20,7 @@ class Container:
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
     def open(self, passphrase, owner=None):
+        syslog.syslog(self.container)
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
 
