@@ -24,8 +24,8 @@ class Container:
 
         syslog.syslog('[PAM] open 1')
 
-        cryptsetup = subprocess.Popen(['cryptsetup', 'luksOpen', pipes.quote(self.container), self.fuuid],
-                                      stdin=subprocess.PIPE, shell=True)
+        args = ['cryptsetup', 'luksOpen', self.container, self.fuuid]
+        cryptsetup = subprocess.Popen(' '.join(pipes.quote(arg) for arg in args), shell=True)
         cryptsetup.communicate('{}\n'.format(passphrase))
         cryptsetup.wait()
 
