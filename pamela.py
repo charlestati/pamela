@@ -6,6 +6,8 @@ import base64
 import os
 import subprocess
 
+import syslog
+
 
 class Container:
     def __init__(self, container, mount_point):
@@ -15,6 +17,7 @@ class Container:
         self.map = os.path.join('/dev/mapper', self.fuuid)
 
     def open(self, passphrase, owner=None):
+        syslog.syslog('[PAM] open')
         if os.path.ismount(self.mount_point):
             raise IOError('Mount point is already mounted')
 
@@ -34,6 +37,7 @@ class Container:
             subprocess.call(['chmod', '-R', '700', self.mount_point])
 
     def close(self):
+        syslog.syslog('[PAM] close')
         if subprocess.call(['umount', self.mount_point]) != 0:
             self.kill()
         subprocess.call(['cryptsetup', 'luksClose', self.fuuid])
@@ -44,7 +48,7 @@ class Container:
 
 
 class User:
-    def __init__(self, username, token):
+    def __init__(self, username, token=None):
         self.username = username
         self.auth_token = token
         self.config_file = self.get_config_file()
@@ -99,15 +103,18 @@ class User:
         return containers
 
     def unlock(self):
+        syslog.syslog('[PAM] unlock')
         for container in self.containers:
-            container.open(self.auth_token, None)
+            container.open(self.auth_token)
 
     def lock(self):
+        syslog.syslog('[PAM] lock')
         for container in self.containers:
             container.close()
 
 
 def pam_sm_authenticate(pamh, flags, argv):
+    syslog.syslog('[PAM] pam_sm_authenticate')
     try:
         username = pamh.get_user(None)
     except pamh.exception as e:
@@ -120,14 +127,16 @@ def pam_sm_authenticate(pamh, flags, argv):
 
 
 def pam_sm_end(pamh):
+    syslog.syslog('[PAM] pam_sm_end')
     try:
         username = pamh.get_user(None)
     except pamh.exception:
         return
     if username is not None:
-        user = User(username, None)
+        user = User(username)
         user.lock()
 
 
 def pam_sm_setcred(pamh, flags, argv):
+    syslog.syslog('[PAM] pam_sm_setcred')
     return pamh.PAM_SUCCESS
